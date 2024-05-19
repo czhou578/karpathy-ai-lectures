@@ -3,12 +3,7 @@ import torch.nn.functional as F
 
 
 words = open("names.txt", 'r').read().splitlines()
-n1 = int(0.8*len(words))
-n2 = int(0.9*len(words))
 
-train = words[:n1]
-dev = words[n1:n2]
-test = words[n2:]
 
 N = torch.zeros((27, 27, 27), dtype=torch.int32)
 
@@ -22,6 +17,11 @@ W = torch.rand((27, 27), generator=g, requires_grad=True)
 
 xs, ys = [], []
 
+words_len = len(words)
+train_idx = int(0.80 * words_len)
+dev_idx = int(0.90 * words_len)
+
+
 for w in train:
     chs = ['.'] + list(w) + ['.']
     for ch1, ch2, ch3 in zip(chs, chs[1:], chs[2:]):
@@ -33,6 +33,12 @@ for w in train:
 
 xs = torch.tensor(xs)
 ys = torch.tensor(ys)
+
+xtrain, ytrain = xs[:train_idx], ys[:train_idx]
+xdev, ydev = xs[train_idx:dev_idx], ys[train_idx:dev_idx]
+xtest, ytest = xs[dev_idx:], ys[dev_idx:]
+
+
 num = xs.nelement()
 
 for k in range(50):
