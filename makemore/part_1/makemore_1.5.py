@@ -8,7 +8,6 @@ Can you delete our use of F.one_hot in favor of simply indexing into rows of W?
 
 words = open("names.txt", 'r').read().splitlines()
 
-
 N = torch.zeros((27, 27, 27), dtype=torch.int32)
 
 chars = sorted(list(set(''.join(words))))

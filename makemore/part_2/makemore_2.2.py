@@ -3,8 +3,8 @@ import torch.nn.functional as F
 import random
 
 '''
-- E01: Tune the hyperparameters of the training to beat my best validation loss of 2.2
-
+- E02: I was not careful with the intialization of the network in this video. (1) What is the loss you'd get if the predicted probabilities at initialization were perfectly uniform? What loss do we achieve? 
+(2) Can you tune the initialization to get a starting loss that is much more similar to (1)?
 200000 run
 hl-100: 2.22
 
@@ -55,11 +55,11 @@ Xdev, Ydev = build_dataset(words[n1:n2])
 Xte, Yte = build_dataset(words[n2:])
 
 g = torch.Generator().manual_seed(2147483647) # for reproducibility
-C = torch.randn((27, 10), generator=g)
-W1 = torch.randn((50, 100), generator=g)
+C = torch.randn((27, 10), generator=g)  
+W1 = torch.randn((50, 100), generator=g) 
 b1 = torch.randn(100, generator=g)
-W2 = torch.randn((100, 27), generator=g)
-b2 = torch.randn(27, generator=g)
+W2 = torch.randn((100, 27), generator=g) * 0.01
+b2 = torch.randn(27, generator=g) * 0
 parameters = [C, W1, b1, W2, b2]
 
 lri = []
@@ -78,6 +78,7 @@ for i in range(200000):
   emb = C[Xtr[ix]] # (32, 3, 10)
   h = torch.tanh(emb.view(-1, 50) @ W1 + b1) # (32, 200)
   logits = h @ W2 + b2 # (32, 27)
+  print(logits[0])
   loss = F.cross_entropy(logits, Ytr[ix])
   
   # backward pass
