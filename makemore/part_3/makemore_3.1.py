@@ -3,27 +3,25 @@ E01: I did not get around to seeing what happens when you initialize all weights
 1) the network trains just fine or 2) the network doesn't train at all, but actually it is 3) the network trains but only partially, and achieves a pretty bad final performance. 
 Inspect the gradients and activations to figure out what is happening and why the network is only partially training, and what part is being trained exactly.
 
+grad:data, has to be small, since we are using grad * lr onto data. 
+The standard deviation becomes close to 0, which means the 
 '''
 import torch
 import torch.nn.functional as F
 import random
 
-# read in all the words
+# Let's train a deeper network
+# The classes we create here are the same API as nn.Module in PyTorch
+
 words = open('names.txt', 'r').read().splitlines()
 words[:8]
-
-# build the vocabulary of characters and mappings to/from integers
 chars = sorted(list(set(''.join(words))))
 stoi = {s:i+1 for i,s in enumerate(chars)}
 stoi['.'] = 0
 itos = {i:s for s,i in stoi.items()}
 vocab_size = len(itos)
-print(itos)
-print(vocab_size)
 
 # build the dataset
-block_size = 3 # context length: how many characters do we take to predict the next one?
-
 def build_dataset(words):  
   X, Y = [], []
   
@@ -40,6 +38,8 @@ def build_dataset(words):
   print(X.shape, Y.shape)
   return X, Y
 
+block_size = 3 # context length: how many characters do we take to predict the next one?
+
 random.seed(42)
 random.shuffle(words)
 n1 = int(0.8*len(words))
@@ -49,28 +49,95 @@ Xtr,  Ytr  = build_dataset(words[:n1])     # 80%
 Xdev, Ydev = build_dataset(words[n1:n2])   # 10%
 Xte,  Yte  = build_dataset(words[n2:])     # 10%
 
-# MLP revisited
+
+class Linear:
+  
+  def __init__(self, fan_in, fan_out, bias=True):
+    self.weight = torch.zeros((fan_in, fan_out)) / fan_in**0.5
+    self.bias = torch.zeros(fan_out) if bias else None
+  
+  def __call__(self, x):
+    self.out = x @ self.weight
+    if self.bias is not None:
+      self.out += self.bias
+    return self.out
+  
+  def parameters(self):
+    return [self.weight] + ([] if self.bias is None else [self.bias])
+
+
+class BatchNorm1d:
+  
+  def __init__(self, dim, eps=1e-5, momentum=0.1):
+    self.eps = eps
+    self.momentum = momentum
+    self.training = True
+    # parameters (trained with backprop)
+    self.gamma = torch.ones(dim)
+    self.beta = torch.zeros(dim)
+    # buffers (trained with a running 'momentum update')
+    self.running_mean = torch.zeros(dim)
+    self.running_var = torch.ones(dim)
+  
+  def __call__(self, x):
+    # calculate the forward pass
+    if self.training:
+      xmean = x.mean(0, keepdim=True) # batch mean
+      xvar = x.var(0, keepdim=True) # batch variance
+    else:
+      xmean = self.running_mean
+      xvar = self.running_var
+    xhat = (x - xmean) / torch.sqrt(xvar + self.eps) # normalize to unit variance
+    self.out = self.gamma * xhat + self.beta
+    # update the buffers
+    if self.training:
+      with torch.no_grad():
+        self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * xmean
+        self.running_var = (1 - self.momentum) * self.running_var + self.momentum * xvar
+    return self.out
+  
+  def parameters(self):
+    return [self.gamma, self.beta]
+
+class Tanh:
+  def __call__(self, x):
+    self.out = torch.tanh(x)
+    return self.out
+  def parameters(self):
+    return []
+
 n_embd = 10 # the dimensionality of the character embedding vectors
-n_hidden = 200 # the number of neurons in the hidden layer of the MLP
-
+n_hidden = 100 # the number of neurons in the hidden layer of the MLP
 g = torch.Generator().manual_seed(2147483647) # for reproducibility
-C  = torch.randn((vocab_size, n_embd),            generator=g)
-W1 = torch.zeros((n_embd * block_size, n_hidden)) * (5/3)/((n_embd * block_size)**0.5) #* 0.2
-# W1 = torch.randn((n_embd * block_size, n_hidden), generator=g) * (5/3)/((n_embd * block_size)**0.5) #* 0.2
-#b1 = torch.randn(n_hidden,                        generator=g) * 0.01
-W2 = torch.zeros((n_hidden, vocab_size)) * 0.01
-# W2 = torch.randn((n_hidden, vocab_size),          generator=g) * 0.01
-b2 = torch.zeros(vocab_size) * 0
-# b2 = torch.randn(vocab_size,                      generator=g) * 0
 
+C = torch.randn((vocab_size, n_embd),            generator=g)
+layers = [
+  Linear(n_embd * block_size, n_hidden, bias=False), BatchNorm1d(n_hidden), Tanh(),
+  Linear(           n_hidden, n_hidden, bias=False), BatchNorm1d(n_hidden), Tanh(),
+  Linear(           n_hidden, n_hidden, bias=False), BatchNorm1d(n_hidden), Tanh(),
+  Linear(           n_hidden, n_hidden, bias=False), BatchNorm1d(n_hidden), Tanh(),
+  Linear(           n_hidden, n_hidden, bias=False), BatchNorm1d(n_hidden), Tanh(),
+  Linear(           n_hidden, vocab_size, bias=False), BatchNorm1d(vocab_size),
+]
+# layers = [
+#   Linear(n_embd * block_size, n_hidden), Tanh(),
+#   Linear(           n_hidden, n_hidden), Tanh(),
+#   Linear(           n_hidden, n_hidden), Tanh(),
+#   Linear(           n_hidden, n_hidden), Tanh(),
+#   Linear(           n_hidden, n_hidden), Tanh(),
+#   Linear(           n_hidden, vocab_size),
+# ]
 
-# BatchNorm parameters
-bngain = torch.ones((1, n_hidden))
-bnbias = torch.zeros((1, n_hidden))
-bnmean_running = torch.zeros((1, n_hidden))
-bnstd_running = torch.ones((1, n_hidden))
+with torch.no_grad():
+  # last layer: make less confident
+  layers[-1].gamma *= 0.1
+  #layers[-1].weight *= 0.1
+  # all other layers: apply gain
+  for layer in layers[:-1]:
+    if isinstance(layer, Linear):
+      layer.weight *= 1.0 #5/3
 
-parameters = [C, W1, W2, b2, bngain, bnbias]
+parameters = [C] + [p for layer in layers for p in layer.parameters()]
 print(sum(p.nelement() for p in parameters)) # number of parameters in total
 for p in parameters:
   p.requires_grad = True
@@ -79,6 +146,7 @@ for p in parameters:
 max_steps = 200000
 batch_size = 32
 lossi = []
+ud = []
 
 for i in range(max_steps):
   
@@ -88,30 +156,20 @@ for i in range(max_steps):
   
   # forward pass
   emb = C[Xb] # embed the characters into vectors
-  embcat = emb.view(emb.shape[0], -1) # concatenate the vectors
-  # Linear layer
-  hpreact = embcat @ W1 #+ b1 # hidden layer pre-activation
-  # BatchNorm layer
-  # -------------------------------------------------------------
-  bnmeani = hpreact.mean(0, keepdim=True)
-  bnstdi = hpreact.std(0, keepdim=True)
-  hpreact = bngain * (hpreact - bnmeani) / bnstdi + bnbias
-  with torch.no_grad():
-    bnmean_running = 0.999 * bnmean_running + 0.001 * bnmeani
-    bnstd_running = 0.999 * bnstd_running + 0.001 * bnstdi
-  # -------------------------------------------------------------
-  # Non-linearity
-  h = torch.tanh(hpreact) # hidden layer
-  logits = h @ W2 + b2 # output layer
-  loss = F.cross_entropy(logits, Yb) # loss function
+  x = emb.view(emb.shape[0], -1) # concatenate the vectors
+  for layer in layers:
+    x = layer(x)
+  loss = F.cross_entropy(x, Yb) # loss function
   
   # backward pass
+  for layer in layers:
+    layer.out.retain_grad() # AFTER_DEBUG: would take out retain_graph
   for p in parameters:
     p.grad = None
   loss.backward()
   
   # update
-  lr = 0.1 if i < 100000 else 0.01 # step learning rate decay
+  lr = 0.1 if i < 150000 else 0.01 # step learning rate decay
   for p in parameters:
     p.data += -lr * p.grad
 
@@ -119,34 +177,8 @@ for i in range(max_steps):
   if i % 10000 == 0: # print every once in a while
     print(f'{i:7d}/{max_steps:7d}: {loss.item():.4f}')
   lossi.append(loss.log10().item())
-  
-# calibrate the batch norm at the end of training
+  with torch.no_grad():
+    ud.append([((lr*p.grad).std() / p.data.std()).log10().item() for p in parameters])
 
-with torch.no_grad():
-  # pass the training set through
-  emb = C[Xtr]
-  embcat = emb.view(emb.shape[0], -1)
-  hpreact = embcat @ W1 # + b1
-  # measure the mean/std over the entire training set
-  bnmean = hpreact.mean(0, keepdim=True)
-  bnstd = hpreact.std(0, keepdim=True)
-
-@torch.no_grad() # this decorator disables gradient tracking
-def split_loss(split):
-  x,y = {
-    'train': (Xtr, Ytr),
-    'val': (Xdev, Ydev),
-    'test': (Xte, Yte),
-  }[split]
-  emb = C[x] # (N, block_size, n_embd)
-  embcat = emb.view(emb.shape[0], -1) # concat into (N, block_size * n_embd)
-  hpreact = embcat @ W1 # + b1
-  #hpreact = bngain * (hpreact - hpreact.mean(0, keepdim=True)) / hpreact.std(0, keepdim=True) + bnbias
-  hpreact = bngain * (hpreact - bnmean_running) / bnstd_running + bnbias
-  h = torch.tanh(hpreact) # (N, n_hidden)
-  logits = h @ W2 + b2 # (N, vocab_size)
-  loss = F.cross_entropy(logits, y)
-  print(split, loss.item())
-
-split_loss('train')
-split_loss('val')
+  if i >= 1000:
+    break # AFTER_DEBUG: would take out obviously to run full optimization
