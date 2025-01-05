@@ -1,4 +1,6 @@
-KV Cache: avoiding recomputation by using cached key and value matrices in transformer architectures
+## KV Cache: avoiding recomputation by using cached key and value matrices in transformer architectures
+
+## Hyperparameter: choices about algorithm that you set rather then learn
 
 ## Quantization: representing values in fewer bits then FP32
 
@@ -57,4 +59,24 @@ Only these 2 experts process x and their outputs are combined
 
 - Each expert in an MoE can specialize in processing a specific type of input. During training, different experts are encouraged to focus on different regions of the input space. Allows processing of heterogenous data.
 
-In an MoE with 10 experts, if the gating network consistently activates only 2 experts for all inputs, the remaining 8 experts are effectively unused. A load balancing term in the loss function penalizes this behavior, encouraging the gating network to distribute activations more evenly.
+- In an MoE with 10 experts, if the gating network consistently activates only 2 experts for all inputs, the remaining 8 experts are effectively unused. A load balancing term in the loss function penalizes this behavior, encouraging the gating network to distribute activations more evenly.
+
+## Regularization improves model generalization by preventing overfitting
+
+### Adding constraints to model complexity
+
+### Encouraging the model to focus on the most relevant patterns in the data.
+
+L2 Regularization:
+
+It penalizes large weights by adding the sum of the squared values of the weights to the loss function. The regularization term encourages the model to keep weights smaller, effectively reducing the model's complexity.
+
+## Dropout: a fraction of neurons in a layer is randomly "dropped" (set to zero) during each training iteration. This prevents the network from becoming overly reliant on specific neurons, encouraging more robust feature representations.
+
+## Early Stopping: halts training once the model's performance on a validation set stops improving, preventing overfitting and saving computational resources.
+
+## Data Augmentation: generates additional training samples by applying transformations to the existing data. This increases the dataset's diversity and reduces overfitting.
+
+## Weight Sharing: reuses the same set of weights across multiple parts of the model, reducing the number of parameters and improving generalization.
+
+- Reduces the model's size and computational complexity.
