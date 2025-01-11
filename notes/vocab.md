@@ -80,3 +80,31 @@ It penalizes large weights by adding the sum of the squared values of the weight
 ## Weight Sharing: reuses the same set of weights across multiple parts of the model, reducing the number of parameters and improving generalization.
 
 - Reduces the model's size and computational complexity.
+
+## Recurrent Neural networks
+
+- cell state = f(input, old state)
+
+![alt text]({6AB11136-4EBF-4270-89CB-4D473635A6E0}.png)
+
+Parameter intialization: initialize biases to 0, helps prevent weights from shrinking to zero.
+
+## Long Short Term Memory
+
+- maintain a cell state
+- use gates to control flow of information
+
+Limitations:
+
+- encoding sequences limited by memory usage (leading to lost information)
+- slow, no parallelization.
+
+## Attention
+
+- Compare query to all keys. How similar is it?
+- Attention Score: compute pairwise similarity between query and key
+
+Encode position information
+extract key, query, value for search
+compute attention weighting
+extract features with high attention
