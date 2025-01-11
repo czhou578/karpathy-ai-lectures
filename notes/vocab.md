@@ -108,3 +108,11 @@ Encode position information
 extract key, query, value for search
 compute attention weighting
 extract features with high attention
+
+## Convolutional Neural networks
+
+- hierarchy of features
+
+Low level features
+Mid level features
+High level features
