@@ -32,3 +32,20 @@ Learning in unverifiable domains
 thousands of updates -> thousands of prompts -> thousands of generations
 
 Reinforcement learning from Human Feedback
+
+Train a neural network simulator of human preferences
+Run RL but using simulator instead of actual humans
+
+reward model score:
+human ordering:
+
+train model to be consistent with human orderings
+
+discriminator-generator gap: easier to disc. instead of generate.
+
+Downside: lossy simulation of human brain
+
+- RL discovers ways to game the model
+- adversarial examples: specific inputs that go through model and give nonsensical final results
+
+Not something you can run forever.
