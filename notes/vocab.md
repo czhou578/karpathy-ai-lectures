@@ -116,3 +116,39 @@ extract features with high attention
 Low level features
 Mid level features
 High level features
+
+# Reinforcement Learning
+
+Only using reward:
+
+- unfairness: improvement may not be rewarded properly
+- instability: constantly chasing higher reward may lead to inconsistent results, or large reward fluctuations
+
+Value function:
+
+- like a score line. (predicted score line). This has to be constantly readjusted as progress is made. Acts as a baseline.
+
+Big question: how much do you outperform that baseline?
+
+Subtracting score line reduces variance in training, giving higher gradient signals to actions doing well.
+
+Giving too much reward might lead to extreme exploration, which causes reward volatility.
+
+## PPO (proximal policy optimization)
+
+- clip mechanism, which limits how much policy can shift in one update.
+
+- can't go too far away from original strategy or face penalties
+
+Reflected by adding KL penalty against reference model.
+
+## GRPO
+
+- why not do n number of simulations, take the avg score as expected score? Get higher then avg, rewarded.
+
+value function Critic often needs to be as large as the Actor to be accurate, which is costly and impractical.
+
+1. No value network for Critic
+2. sample outputs from old policy for same question or state
+3. treat avg reward as baseline
+4. keeps clip and kl mechanisms
