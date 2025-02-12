@@ -152,3 +152,7 @@ value function Critic often needs to be as large as the Actor to be accurate, wh
 2. sample outputs from old policy for same question or state
 3. treat avg reward as baseline
 4. keeps clip and kl mechanisms
+
+Minimal curated data + large-scale RL
+
+Distillation emerges as the “secret weapon” to swiftly propagate advanced reasoning behaviors to new architectures or smaller footprints.
