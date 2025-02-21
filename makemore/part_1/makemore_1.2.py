@@ -1,9 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-
 words = open("names.txt", 'r').read().splitlines()
-
 
 N = torch.zeros((27, 27, 27), dtype=torch.int32)
 
@@ -20,7 +18,6 @@ xs, ys = [], []
 words_len = len(words)
 train_idx = int(0.80 * words_len)
 dev_idx = int(0.90 * words_len)
-
 
 for w in train:
     chs = ['.'] + list(w) + ['.']
