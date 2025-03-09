@@ -163,3 +163,29 @@ Distillation emerges as the “secret weapon” to swiftly propagate advanced re
 ## DPO: Direct Preference Optimization
 
 Do direct optimization RLHF on outputs instead of training separate model for it.
+
+## RLAIF
+
+1. RLHF but using AI to generate responses. More scalable.
+
+## LoRA
+
+1. Freeze the model, insert a new training layer into model, then only fine tune this tiny layer
+2. Instead of modifying the model, let's inject a small trainable layer on top of each weight matrix
+3. if weight is 10,000 x 10,000, we can break down to 10,000 _ 8 and 8 _ 10,000 matrices. We train these two, and
+   then merge them at test time. Betting that finetuning doesn't involve substantial deviation away from general
+   knowledge learned by foundation model.
+
+## Test Time Scaling
+
+1. TTS requires dynamic compute allocation on inference, while pretraining is higher on initial costs but allows more encoding of information.
+
+2. An important future direction is building adaptive systems where the LLM dynamically allocates computation based on an estimate of the question’s complexity. This idea connects to meta-cognition in AI [314], enabling models to have a sense of what they don’t know or what deserves more thought.
+
+3. Temperature Scaling / Data Augmentation / Rescale Inputs at test time. It helps control creativeness, avoid overconfidence / underconfidence, and diverse conditions.
+
+4. How to manipulate the data without retraining the model itself.
+
+Pure RL models struggle to balance language quality with reasoning improvement
+
+The development of hybrid frameworks that initialize RL policies with distilled knowledge from large models, combining the exploratory benefits of RL with the stability of supervised learning is an interesting direction
