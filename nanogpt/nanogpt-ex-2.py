@@ -21,7 +21,9 @@ Implement model checkpointing to save/load progress
 """
 
 batch_size = 12
-block_size = 8
+block_size = 8 # context size
+n_embd = 32
+head_size = 4
 
 with open('jfk-speeches.txt', encoding="utf-8") as f:
     text = f.read()
@@ -44,7 +46,9 @@ validation_data = data[n:]
 def get_batch(split):
     training_data if split == 'train' else validation_data
     ix = torch.randint(len(data) - block_size, (batch_size,))
+    # print(ix.shape)
     x = torch.stack([data[i: i + block_size] for i in ix])
+    # print(x.shape)
     y = torch.stack([data[i + 1: i + block_size + 1] for i in ix])
 
     return x, y
@@ -52,6 +56,38 @@ def get_batch(split):
 xb, yb = get_batch('train')
 
 # Model Architecture
+
+class Head(nn.Module):
+    def __init__(self, head_size):
+        super().__init__()
+        self.key = nn.Linear(n_embd, head_size, bias=False)
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+
+    def forward(self, x):
+        B, T, C = x.shape
+        keys = self.key(x)
+        queries = self.query(x)
+        values = self.value(x)
+
+        # attention_scores = queries * keys^T
+        attention_scores = torch.matmul(queries, keys.transpose(1, 2))
+
+        # divide since otherwise softmax will explode. Single token will dominate.
+        attention_scores = attention_scores / (C ** 0.5)
+        attention_scores = attention_scores.masked_fill(self.mask[:T, :T] == 0, float('-inf'))
+        attention_probs = F.softmax(attention_scores, dim=-1)
+        output = attention_probs @ values
+
+        return output
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, head_size, num_heads):
+        super().__init__()
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        
+
 
 class ModelBase(nn.Module):
     def __init__(self, vocab_size):
