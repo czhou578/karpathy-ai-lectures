@@ -86,8 +86,15 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, head_size, num_heads):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
-        
-
+        self.project = nn.Linear(num_heads * head_size, n_embd)
+        self.dropout = nn.Dropout(0.1)
+    
+    def forward(self, x):
+        head_outputs = [Head(head) for head in self.heads]
+        output = torch.cat(head_outputs, dim=-1)
+        output = self.project(output)
+        output = self.dropout(output)
+        return output
 
 class ModelBase(nn.Module):
     def __init__(self, vocab_size):
@@ -103,6 +110,34 @@ class ModelBase(nn.Module):
         loss = F.cross_entropy(logits, targets)
 
         return logits, loss
+
+class FeedForward(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd, 4 * n_embd),
+            nn.ReLU(),
+            nn.Linear(4 * n_embd, n_embd),
+            nn.Dropout(0.1)
+        )
+    
+    def forward(self, x):
+        return self.net(x)
+
+class Transformer(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.attention = MultiHeadAttention(head_size, 8)
+        self.feed_forward = FeedForward()
+        self.layerNorm = nn.LayerNorm(n_embd)
+
+    def forward(self, x):
+        x = self.attention(x)
+        x = self.feed_forward(x)
+        x = self.layerNorm(x)
+
+        return x
+
 
 m = ModelBase(vocab_size)
 logits, loss = m(xb, yb)

@@ -109,30 +109,30 @@ class MultiHeadAttention(nn.Module):
         out = self.dropout(self.proj(out))
         return out
     
-class AllHeadsParallel(nn.Module):
-    """ multiple heads of self-attention in parallel """
+# class AllHeadsParallel(nn.Module):
+#     """ multiple heads of self-attention in parallel """
 
-    def __init__(self, num_heads, head_size):
-        super().__init__()
-        self.key = nn.Linear(n_embd, num_heads * head_size, bias=False)
-        self.query = nn.Linear(n_embd, num_heads * head_size, bias=False)
-        self.value = nn.Linear(n_embd, num_heads * head_size, bias=False)
-        self.dropout = nn.Dropout(dropout)
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+#     def __init__(self, num_heads, head_size):
+#         super().__init__()
+#         self.key = nn.Linear(n_embd, num_heads * head_size, bias=False)
+#         self.query = nn.Linear(n_embd, num_heads * head_size, bias=False)
+#         self.value = nn.Linear(n_embd, num_heads * head_size, bias=False)
+#         self.dropout = nn.Dropout(dropout)
+#         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
         
-        self.proj = nn.Linear(head_size * num_heads, n_embd)
-        self.num_heads = num_heads
-        self.head_size = head_size
+#         self.proj = nn.Linear(head_size * num_heads, n_embd)
+#         self.num_heads = num_heads
+#         self.head_size = head_size
 
-    def forward(self, x):
-        B, T, C = x.shape
-        k = self.key(x).view(B, T, self.num_heads, self.head_size)   # (B,T,nH,HS)
-        q = self.query(x).view(B, T, self.num_heads, self.head_size) # (B,T,nH,HS)
+#     def forward(self, x):
+#         B, T, C = x.shape
+#         k = self.key(x).view(B, T, self.num_heads, self.head_size)   # (B,T,nH,HS)
+#         q = self.query(x).view(B, T, self.num_heads, self.head_size) # (B,T,nH,HS)
         
-        k = k.transpose(1, 2) # (B,nH,T,hS)
-        q = q.transpose(1, 2) # (B,nH,T,hS)
+#         k = k.transpose(1, 2) # (B,nH,T,hS)
+#         q = q.transpose(1, 2) # (B,nH,T,hS)
 
-        wei = q @ k.transpose(-2,-1) * self.head_size**-0.5 # (B,nH,T,hS) @ (B,nH,hS,T) -> (B,nH,T,T)
+#         wei = q @ k.transpose(-2,-1) * self.head_size**-0.5 # (B,nH,T,hS) @ (B,nH,hS,T) -> (B,nH,T,T)
 
 class FeedFoward(nn.Module):
     """ a simple linear layer followed by a non-linearity """

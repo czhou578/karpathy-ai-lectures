@@ -1,3 +1,25 @@
+## nn.module
+
+- forward function has to be implemented.
+
+## nn.Linear
+
+- intialized randomly using Kaiming initialization
+
+## Feed Forward Attention
+
+- The feedforward block is an MLP applied individually to each token. It transforms embeddings, introduces non-linearity, and expands feature capacity beyond self-attention.
+
+## Multiheaded Attention
+
+- Projection layer: concatenated tensor doesn't have same embedding dimension. Linear layer compresses it down to match the embedding dimension.
+
+- the projection layer is learnable (it's a linear layer), it actually learns a smart weighted combination of all the heads. It allows the model to "mix" and combine the information learned by the different attention heads.
+
+- Responsible for cross head attention.
+
+- Transformer models maintain consistent embedding dimension for all layers. Without the projection layer, this would be incompatible.
+
 ## KV Cache: avoiding recomputation by using cached key and value matrices in transformer architectures
 
 ## Hyperparameter: choices about algorithm that you set rather then learn
