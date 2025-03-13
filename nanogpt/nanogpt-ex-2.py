@@ -100,6 +100,10 @@ class ModelBase(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
         self.token_embedding = nn.Embedding(vocab_size, vocab_size)
+        self.transformer = Transformer()
+        self.positional_embedding = nn.Embedding(block_size, n_embd)
+        
+
 
     def forward(self, input, targets): # input is B * T (batch size * block size)
         logits = self.token_embedding(input)
@@ -127,14 +131,14 @@ class FeedForward(nn.Module):
 class Transformer(nn.Module):
     def __init__(self):
         super().__init__()
+        self.layerNorm1 = nn.LayerNorm(n_embd)
+        self.layerNor2 = nn.LayerNorm(n_embd)
         self.attention = MultiHeadAttention(head_size, 8)
         self.feed_forward = FeedForward()
-        self.layerNorm = nn.LayerNorm(n_embd)
 
     def forward(self, x):
-        x = self.attention(x)
-        x = self.feed_forward(x)
-        x = self.layerNorm(x)
+        x = x + self.attention(self.layerNorm1(x))
+        x = x + self.feed_forward(self.layerNorm2(x))
 
         return x
 

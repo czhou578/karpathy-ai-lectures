@@ -6,6 +6,23 @@
 
 - intialized randomly using Kaiming initialization
 
+## Residual Connections
+
+- add input to a layer to output of that layer.
+- helps prevent vanishing gradients, helps stabilize training.
+- In a typical transformer block, a residual connection is applied after the multi-head self-attention layer and after the feedforward network. This is often followed by layer normalization.
+
+Analogy:
+
+Imagine you’re writing an essay:
+
+Without residual connections: Every time you revise a draft, you throw away the previous version and start from scratch. This makes progress slow, and you might lose important ideas.
+With residual connections: Instead of starting from scratch, you keep your previous draft and make small edits. This allows you to gradually improve the essay while keeping the core content.
+Residual connections work the same way:
+
+Instead of completely replacing an input representation, they incrementally refine it.
+This helps avoid catastrophic forgetting where earlier learned information is lost.
+
 ## Feed Forward Attention
 
 - The feedforward block is an MLP applied individually to each token. It transforms embeddings, introduces non-linearity, and expands feature capacity beyond self-attention.
