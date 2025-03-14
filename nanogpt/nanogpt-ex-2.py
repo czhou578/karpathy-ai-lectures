@@ -24,6 +24,7 @@ batch_size = 12
 block_size = 8 # context size
 n_embd = 32
 head_size = 4
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 with open('jfk-speeches.txt', encoding="utf-8") as f:
     text = f.read()
@@ -63,7 +64,7 @@ class Head(nn.Module):
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        self.register_buffer('mask', torch.tril(torch.ones(block_size, block_size)))
 
     def forward(self, x):
         B, T, C = x.shape
@@ -90,7 +91,7 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(0.1)
     
     def forward(self, x):
-        head_outputs = [Head(head) for head in self.heads]
+        head_outputs = [head(x) for head in self.heads]
         output = torch.cat(head_outputs, dim=-1)
         output = self.project(output)
         output = self.dropout(output)
@@ -99,21 +100,59 @@ class MultiHeadAttention(nn.Module):
 class ModelBase(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
-        self.token_embedding = nn.Embedding(vocab_size, vocab_size)
+        self.token_embedding = nn.Embedding(vocab_size, n_embd)
         self.transformer = Transformer()
         self.positional_embedding = nn.Embedding(block_size, n_embd)
-        
+        self.lm_head = nn.Linear(n_embd, vocab_size)
 
+    def forward(self, input, targets=None): # input is B * T (batch size * block size)
+        token_embeddings = self.token_embedding(input)
+        positional_embeddings = self.positional_embedding(torch.arange(block_size))
+        # print("positional and token embeddings", positional_embeddings.shape, token_embeddings.shape)
+        embeddings = token_embeddings + positional_embeddings
+        output = self.transformer(embeddings)
 
-    def forward(self, input, targets): # input is B * T (batch size * block size)
-        logits = self.token_embedding(input)
+        logits = self.lm_head(output)
 
-        B, T, C = logits.shape
-        logits = logits.view(B * T, C)
-        targets = targets.view(B * T)
-        loss = F.cross_entropy(logits, targets)
+        if targets is None:
+            return logits, None
+        else:
+            B, T, C = logits.shape
 
-        return logits, loss
+            logits = logits.view(B * T, C)
+            targets = targets.view(B * T)
+
+            loss = F.cross_entropy(logits, targets)
+
+            return logits, loss
+
+        # logits = self.token_embedding(input)
+
+        # B, T, C = logits.shape
+        # logits = logits.view(B * T, C)
+        # targets = targets.view(B * T)
+        # loss = F.cross_entropy(logits, targets)
+
+        # return logits, loss
+    
+    def generate(self, idx, max_tokens):
+        # Get rid of list append - work with tensors instead
+        for _ in range(max_tokens):
+            # crop idx to block_size tokens if longer
+            idx_cond = idx[:, -block_size:]
+            # get predictions
+            logits = self(idx_cond, None)
+            print("logits shape", logits.shape)
+            # focus on last time step
+            logits = logits[:, -1, :] # becomes (B, C)
+            # get probabilities
+            probs = F.softmax(logits, dim=-1)
+            # sample from distribution
+            idx_next = torch.multinomial(probs, num_samples=1) # (B, 1)
+            # append to sequence
+            idx = torch.cat((idx, idx_next), dim=1) # (B, T+1)
+        return idx
+
 
 class FeedForward(nn.Module):
     def __init__(self):
@@ -132,7 +171,7 @@ class Transformer(nn.Module):
     def __init__(self):
         super().__init__()
         self.layerNorm1 = nn.LayerNorm(n_embd)
-        self.layerNor2 = nn.LayerNorm(n_embd)
+        self.layerNorm2 = nn.LayerNorm(n_embd)
         self.attention = MultiHeadAttention(head_size, 8)
         self.feed_forward = FeedForward()
 
@@ -144,9 +183,33 @@ class Transformer(nn.Module):
 
 
 m = ModelBase(vocab_size)
+m = m.to(device)
+optimizer = torch.optim.Adam(m.parameters(), lr=0.001)
 logits, loss = m(xb, yb)
-print("loss is", loss.item())
+# print("loss is", loss.item())
 
+for i in range(1000):
+    xb, yb = get_batch('train')
+    logits, loss = m(xb, yb)
+    # print("loss is", loss.item())
+    
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
 
+    if i % 100 == 0:
+        print(f"step {i}: loss {loss.item()}")
+
+print("the final loss is", loss.item())
+
+# ...after training loop...
+
+# Initialize context with a single token
+context = torch.zeros((1, 1), dtype=torch.long, device=device)
+# Generate 100 new tokens
+generated_tokens = m.generate(context, max_tokens=100)[0].tolist()
+# Convert tokens to text
+generated_text = ''.join([itos[i] for i in generated_tokens])
+print(generated_text)
 
 
