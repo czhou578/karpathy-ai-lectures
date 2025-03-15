@@ -106,8 +106,9 @@ class ModelBase(nn.Module):
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
     def forward(self, input, targets=None): # input is B * T (batch size * block size)
+
         token_embeddings = self.token_embedding(input)
-        positional_embeddings = self.positional_embedding(torch.arange(block_size))
+        positional_embeddings = self.positional_embedding(torch.arange(input.shape[1], device=device))
         # print("positional and token embeddings", positional_embeddings.shape, token_embeddings.shape)
         embeddings = token_embeddings + positional_embeddings
         output = self.transformer(embeddings)
@@ -141,8 +142,8 @@ class ModelBase(nn.Module):
             # crop idx to block_size tokens if longer
             idx_cond = idx[:, -block_size:]
             # get predictions
-            logits = self(idx_cond, None)
-            print("logits shape", logits.shape)
+            logits, _ = self(idx_cond, None)
+            # print("logits shape", logits.shape)
             # focus on last time step
             logits = logits[:, -1, :] # becomes (B, C)
             # get probabilities
@@ -180,7 +181,6 @@ class Transformer(nn.Module):
         x = x + self.feed_forward(self.layerNorm2(x))
 
         return x
-
 
 m = ModelBase(vocab_size)
 m = m.to(device)
