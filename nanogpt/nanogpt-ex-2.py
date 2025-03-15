@@ -20,7 +20,7 @@ Add text generation functionality to sample from the model
 Implement model checkpointing to save/load progress
 """
 
-batch_size = 12
+batch_size = 32
 block_size = 8 # context size
 n_embd = 32
 head_size = 4
@@ -109,7 +109,6 @@ class ModelBase(nn.Module):
 
         token_embeddings = self.token_embedding(input)
         positional_embeddings = self.positional_embedding(torch.arange(input.shape[1], device=device))
-        # print("positional and token embeddings", positional_embeddings.shape, token_embeddings.shape)
         embeddings = token_embeddings + positional_embeddings
         output = self.transformer(embeddings)
 
@@ -182,20 +181,42 @@ class Transformer(nn.Module):
 
         return x
 
+@torch.no_grad()  # disable gradient tracking for efficiency
+def estimate_loss():
+    out = {}
+    m.eval()  # set model to evaluation mode
+    for split in ['train', 'val']:
+        losses = torch.zeros(200)
+        for k in range(200):
+            X, Y = get_batch(split)
+            logits, loss = m(X, Y)
+            losses[k] = loss.item()
+        out[split] = losses.mean()
+    m.train()  # set model back to training mode
+    return out
+
 m = ModelBase(vocab_size)
 m = m.to(device)
 optimizer = torch.optim.Adam(m.parameters(), lr=0.001)
 logits, loss = m(xb, yb)
 # print("loss is", loss.item())
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=1000)
 
-for i in range(1000):
+for i in range(5000):
+
+    if i % 500 == 0:
+        losses = estimate_loss()
+        print(f"step {i}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+    
     xb, yb = get_batch('train')
     logits, loss = m(xb, yb)
     # print("loss is", loss.item())
     
     optimizer.zero_grad()
     loss.backward()
+    nn.utils.clip_grad_norm_(m.parameters(), max_norm=1.0)
     optimizer.step()
+    scheduler.step()
 
     if i % 100 == 0:
         print(f"step {i}: loss {loss.item()}")
@@ -207,9 +228,15 @@ print("the final loss is", loss.item())
 # Initialize context with a single token
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 # Generate 100 new tokens
-generated_tokens = m.generate(context, max_tokens=100)[0].tolist()
+generated_tokens = m.generate(context, max_tokens=500)[0].tolist()
 # Convert tokens to text
 generated_text = ''.join([itos[i] for i in generated_tokens])
 print(generated_text)
 
+'''
+smaller batch sizes lead to noisier gradients.
+
+lr = 0.001: loss is 1.969
+lr = 0.0001: loss is 2.09
+'''
 

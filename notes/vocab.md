@@ -6,6 +6,11 @@
 
 - intialized randomly using Kaiming initialization
 
+## nn.utils.clip_grad_norm
+
+- Computes the gradient norm: It calculates the Euclidean norm (magnitude) of the gradients of the model's parameters.
+  Clips the gradient norm: If the computed gradient norm exceeds the specified max_norm (in this case, 1.0), it scales the gradients to have a norm equal to max_norm. This is done in-place, meaning that the original gradients are modified.
+
 ## Residual Connections
 
 - add input to a layer to output of that layer.
