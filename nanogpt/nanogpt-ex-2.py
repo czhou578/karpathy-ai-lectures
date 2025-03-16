@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 """
 DONE - Create encode/decode functions to convert between text and tokens
@@ -104,6 +105,22 @@ class ModelBase(nn.Module):
         self.transformer = Transformer()
         self.positional_embedding = nn.Embedding(block_size, n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
+        self.pre_ln = nn.LayerNorm(n_embd) # pre layer norm
+
+        self.apply(self._init_weights)
+    
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+        elif isinstance(module, nn.LayerNorm):
+            torch.nn.init.ones_(module.weight)
+            torch.nn.init.zeros_(module.bias)
 
     def forward(self, input, targets=None): # input is B * T (batch size * block size)
 
@@ -111,6 +128,7 @@ class ModelBase(nn.Module):
         positional_embeddings = self.positional_embedding(torch.arange(input.shape[1], device=device))
         embeddings = token_embeddings + positional_embeddings
         output = self.transformer(embeddings)
+        output = self.pre_ln(output)
 
         logits = self.lm_head(output)
 
@@ -175,9 +193,11 @@ class Transformer(nn.Module):
         self.attention = MultiHeadAttention(head_size, 8)
         self.feed_forward = FeedForward()
 
+        self.dropout = nn.Dropout(0.1)
+
     def forward(self, x):
-        x = x + self.attention(self.layerNorm1(x))
-        x = x + self.feed_forward(self.layerNorm2(x))
+        x = x + self.dropout(self.attention(self.layerNorm1(x)))
+        x = x + self.dropout(self.feed_forward(self.layerNorm2(x)))
 
         return x
 
@@ -202,16 +222,30 @@ logits, loss = m(xb, yb)
 # print("loss is", loss.item())
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=1000)
 
+train_losses = []
+val_losses = []
+gradient_norms = []
+
 for i in range(5000):
 
     if i % 500 == 0:
         losses = estimate_loss()
+        train_losses.append(losses['train'])
+        val_losses.append(losses['val'])
         print(f"step {i}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
     
     xb, yb = get_batch('train')
     logits, loss = m(xb, yb)
     # print("loss is", loss.item())
     
+    total_norm = 0
+    for p in m.parameters():
+        if p.grad is not None:
+            param_norm = p.grad.data.norm(2)
+            total_norm += param_norm.item() ** 2
+    total_norm = total_norm ** 0.5
+    gradient_norms.append(total_norm)
+
     optimizer.zero_grad()
     loss.backward()
     nn.utils.clip_grad_norm_(m.parameters(), max_norm=1.0)
@@ -221,22 +255,52 @@ for i in range(5000):
     if i % 100 == 0:
         print(f"step {i}: loss {loss.item()}")
 
-print("the final loss is", loss.item())
+# After training, plot the metrics......
+
+plt.figure(figsize=(12, 4))
+
+# Plot losses
+plt.subplot(1, 2, 1)
+plt.plot(train_losses, label='Train Loss')
+plt.plot(val_losses, label='Val Loss')
+plt.xlabel('Steps (x500)')
+plt.ylabel('Loss')
+plt.title('Training and Validation Loss')
+plt.legend()
+
+# Plot gradient norms
+plt.subplot(1, 2, 2)
+plt.plot(gradient_norms, label='Gradient Norm')
+plt.xlabel('Steps')
+plt.ylabel('Gradient Norm')
+plt.title('Gradient Norms During Training')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
 
 # ...after training loop...
 
 # Initialize context with a single token
-context = torch.zeros((1, 1), dtype=torch.long, device=device)
-# Generate 100 new tokens
-generated_tokens = m.generate(context, max_tokens=500)[0].tolist()
-# Convert tokens to text
-generated_text = ''.join([itos[i] for i in generated_tokens])
-print(generated_text)
+# context = torch.zeros((1, 1), dtype=torch.long, device=device)
+# # Generate 100 new tokens
+# generated_tokens = m.generate(context, max_tokens=500)[0].tolist()
+# # Convert tokens to text
+# generated_text = ''.join([itos[i] for i in generated_tokens])
+# print(generated_text)
 
 '''
 smaller batch sizes lead to noisier gradients.
 
 lr = 0.001: loss is 1.969
 lr = 0.0001: loss is 2.09
+
+added layer norm before attention: loss is 2.122
+added weight initialization: loss is 1.96
+
+added residual dropout on transformer class: loss is 1.88
+
+Stabilize Training: preventin loss bouncing up and down.
+
 '''
 
