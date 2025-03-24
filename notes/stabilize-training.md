@@ -36,3 +36,24 @@ Common schedules: Cosine annealing, linear decay, cyclical learning rates.
 - Why it helps: Allows you to simulate larger batch sizes, which can improve stability and reduce variance in the gradients.
 
 - How to implement: Accumulate gradients in a loop and then call optimizer.step() after a certain number of steps.
+
+## Parallelize Data Loading
+
+```
+    from torch.utils.data import TensorDataset, DataLoader
+
+    # Create tensor datasets
+    train_dataset = TensorDataset(training_data[:-block_size], training_data[1:1+block_size])
+    val_dataset = TensorDataset(validation_data[:-block_size], validation_data[1:1+block_size])
+
+    # Create data loaders with multiple workers
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=4,  # Parallel data loading
+        pin_memory=True  # Faster data transfer to GPU
+    )
+```
+
+The Dataset is ab abstraction to be able to load and process each sample of your dataset lazily, while the DataLoader takes care of shuffling/sampling/weigthed sampling, batching, using multiprocessing to load the data, use pinned memory etc.

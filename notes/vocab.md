@@ -42,7 +42,9 @@ This helps avoid catastrophic forgetting where earlier learned information is lo
 
 - Transformer models maintain consistent embedding dimension for all layers. Without the projection layer, this would be incompatible.
 
-## KV Cache: avoiding recomputation by using cached key and value matrices in transformer architectures
+## KV Cache:
+
+avoiding recomputation by using cached key and value matrices in transformer architectures
 
 ## Hyperparameter: choices about algorithm that you set rather then learn
 
