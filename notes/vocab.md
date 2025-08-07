@@ -235,3 +235,10 @@ Do direct optimization RLHF on outputs instead of training separate model for it
 Pure RL models struggle to balance language quality with reasoning improvement
 
 The development of hybrid frameworks that initialize RL policies with distilled knowledge from large models, combining the exploratory benefits of RL with the stability of supervised learning is an interesting direction
+
+# Inference Time temperature scaling:
+
+Divide the logits by a temperature before applying a softmax.
+
+Temp > 1 means more creative
+Temp < 1 means more confident
